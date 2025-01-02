@@ -25,3 +25,16 @@ Ments és futtasd. Add meg a szükséges engedélyeket és ha kell időzítsd
     - MENTÉS
 
   c, A google sheets ben létrejön egy SalesForm munkalap és abba kerülnek bele az adatok
+
+
+## Előfizetések és sima rendelések kezelése egy táblázatban
+
+Ez akkor is működik, ha több SalesForm szoftvert használsz.
+
+Egyszerre hoz létre 5 munkalapot.
+
+- Sikeres rendelések: ide kerül minden sikeres rendelés
+- Sikeres előfizetések: ide kerül minden sikeres előfizetés
+- Sikertelen rendelése: mindenki aki nem tudott leadni rendelést (az is aki nem tudott előfizetni nálad)
+- Lejárt előfizetések: Akik nem tudta vonni a SalesForm a havi díját, de nem momndták le (3 naponta újra próbáljuk)
+- Törölt előfizetések: Akik lemondták az előfizetéseidet
