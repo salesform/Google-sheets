@@ -1,0 +1,47 @@
+function importLargeCSVWithConfigAndChunks() {
+  var config = {
+    url: "https://f.salesform.hu/index/csv?pass=gf3grw78fgsvcx6y&rec=1",
+    sheetName: "SalesForm",
+    chunkSize: 500 // Sorok száma chunk-enként
+  };
+
+  try {
+    // Spreadsheet és sheet inicializálás
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = spreadsheet.getSheetByName(config.sheetName) || spreadsheet.insertSheet(config.sheetName);
+
+    // CSV adat letöltése
+    var response = UrlFetchApp.fetch(config.url);
+    if (response.getResponseCode() !== 200) {
+      throw new Error("Nem sikerült elérni a CSV-t: " + response.getResponseCode());
+    }
+
+    // CSV feldolgozása
+    var csvData = Utilities.parseCsv(response.getContentText());
+    if (!csvData || csvData.length === 0) {
+      throw new Error("A CSV üres vagy hibás formátumú.");
+    }
+
+    // Sheet tisztítása
+    sheet.clear();
+
+    // Adatok beillesztése chunkokban
+    for (var i = 0; i < csvData.length; i += config.chunkSize) {
+      var chunk = csvData.slice(i, i + config.chunkSize);
+      sheet.getRange(i + 1, 1, chunk.length, chunk[0].length).setValues(chunk);
+    }
+
+    // Időbélyeg hozzáadása
+    addTimestamp(sheet);
+
+    Logger.log("CSV sikeresen importálva.");
+  } catch (e) {
+    Logger.log("Hiba történt: " + e.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast("Hiba történt: " + e.message, "Figyelmeztetés", 5);
+  }
+}
+
+function addTimestamp(sheet) {
+  var now = new Date();
+  sheet.getRange("A1").setNote("Utolsó frissítés: " + now.toLocaleString());
+}
