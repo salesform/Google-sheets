@@ -1,0 +1,215 @@
+function processCSVsWithSubscriptionLogic() {
+  var config = {
+    // Ha minden csoporthoz csak egy URL van, akkor töröld a , utáni részt és hagyd meg a "" között az egy URL címet.
+    // orders: ["https://sf.domained.hu/index/csv?key=927b4b0fbe1b55081a80c9676a1f50f6"]
+    // ha több, mint kettő van, akkor vesszővel válaszd el őket és bármenynit megadhatsz
+    // orders be kerülnek a sima rendelések
+    orders: [
+      "https://f.bartfaibalazs.hu/index/csv?key=927b4b0fbe1b55081a80c9676a1f50f6",
+      "https://sf.salesform.hu/index/csv?key=121482f1b93ab76d91d4f60cdf387262"
+    ],
+    // subscriptionba kerülnek az előfizetés google sheets exportjai
+    subscriptions: [
+      "https://f.bartfaibalazs.hu/index/csv?rec&key=927b4b0fbe1b55081a80c9676a1f50f6",
+      "https://sf.salesform.hu/index/csv?rec&key=121482f1b93ab76d91d4f60cdf387262"
+    ],
+    sheets: {
+      successfulOrders: "Sikeres rendelések",
+      successfulSubscriptions: "Sikeres előfizetések",
+      failed: "Sikertelen rendelések",
+      expired: "Lejárt előfizetések",
+      canceled: "Törölt előfizetések"
+    },
+    chunkSize: 500 // Maximális sorok száma egyszerre
+  };
+
+  try {
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var dateSuffix = "_" + getCurrentDate();
+
+    // Sheets előkészítése az időbélyeggel
+    var successfulOrdersSheet = getOrCreateSheetWithTimestamp(spreadsheet, config.sheets.successfulOrders, dateSuffix);
+    var successfulSubscriptionsSheet = getOrCreateSheetWithTimestamp(spreadsheet, config.sheets.successfulSubscriptions, dateSuffix);
+    var failedSheet = getOrCreateSheetWithTimestamp(spreadsheet, config.sheets.failed, dateSuffix);
+    var expiredSheet = getOrCreateSheetWithTimestamp(spreadsheet, config.sheets.expired, dateSuffix);
+    var canceledSheet = getOrCreateSheetWithTimestamp(spreadsheet, config.sheets.canceled, dateSuffix);
+
+    var today = new Date();
+
+    // Rendelések feldolgozása
+    config.orders.forEach(function (url) {
+      processOrders(url, successfulOrdersSheet, failedSheet, config.chunkSize);
+    });
+
+    // Előfizetések feldolgozása
+    config.subscriptions.forEach(function (url) {
+      processSubscriptions(url, successfulSubscriptionsSheet, expiredSheet, canceledSheet, today, config.chunkSize);
+    });
+
+    Logger.log("CSV-k feldolgozása sikeresen befejeződött.");
+  } catch (e) {
+    Logger.log("Hiba történt: " + e.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast("Hiba történt: " + e.message, "Figyelmeztetés", 5);
+  }
+}
+
+function processOrders(url, successfulOrdersSheet, failedSheet, chunkSize) {
+  var response = UrlFetchApp.fetch(url);
+  if (response.getResponseCode() !== 200) {
+    throw new Error("Nem sikerült elérni a CSV-t: " + response.getResponseCode());
+  }
+
+  var csvData = Utilities.parseCsv(response.getContentText());
+  if (!csvData || csvData.length === 0) {
+    throw new Error("A CSV üres vagy hibás formátumú.");
+  }
+
+  var header = csvData[0];
+  var statusIndex = header.indexOf("Státusz");
+  if (statusIndex === -1) {
+    throw new Error("'Státusz' oszlop nem található a rendelések CSV-jében.");
+  }
+
+  writeFilteredDataToSheet(csvData, successfulOrdersSheet, statusIndex, "sikeres", chunkSize);
+  writeFilteredDataToSheet(csvData, failedSheet, statusIndex, "sikertelen", chunkSize);
+}
+
+function processSubscriptions(url, successfulSubscriptionsSheet, expiredSheet, canceledSheet, today, chunkSize) {
+  var response = UrlFetchApp.fetch(url);
+  if (response.getResponseCode() !== 200) {
+    throw new Error("Nem sikerült elérni a CSV-t: " + response.getResponseCode());
+  }
+
+  var csvData = Utilities.parseCsv(response.getContentText());
+  if (!csvData || csvData.length === 0) {
+    throw new Error("A CSV üres vagy hibás formátumú.");
+  }
+
+  var header = csvData[0];
+  var statusIndex = header.indexOf("Státusz");
+  var dueDateIndex = header.indexOf("Esedékesség");
+  if (statusIndex === -1 || dueDateIndex === -1) {
+    throw new Error("'Státusz' vagy 'Esedékesség' oszlop nem található az előfizetések CSV-jében.");
+  }
+
+  // Sikeres előfizetések
+  var successfulSubscriptions = csvData.filter(function (row, index) {
+    if (index === 0) return true; // Fejléc
+    return row[statusIndex] === "Sikeres" && isValidDate(row[dueDateIndex]);
+  });
+  writeDataToSheet(successfulSubscriptions, successfulSubscriptionsSheet, chunkSize);
+
+  // Lejárt előfizetések
+  var expiredSubscriptions = csvData.filter(function (row, index) {
+    if (index === 0) return true; // Fejléc
+    var dueDate = new Date(row[dueDateIndex]);
+    return isValidDate(row[dueDateIndex]) && dueDate < today;
+  });
+  writeDataToSheet(expiredSubscriptions, expiredSheet, chunkSize);
+
+  // Törölt előfizetések
+  var canceledSubscriptions = csvData.filter(function (row, index) {
+    if (index === 0) return true; // Fejléc
+    return row[dueDateIndex] === "Lemondott";
+  });
+  writeDataToSheet(canceledSubscriptions, canceledSheet, chunkSize);
+}
+
+function getOrCreateSheetWithTimestamp(spreadsheet, baseName, dateSuffix) {
+  var sheetName = baseName + dateSuffix;
+  var existingSheet = spreadsheet.getSheetByName(sheetName);
+
+  if (existingSheet) {
+    existingSheet.clear();
+    return existingSheet;
+  }
+
+  var newSheet = spreadsheet.insertSheet(sheetName);
+  if (!newSheet) {
+    throw new Error("Nem sikerült létrehozni a(z) " + sheetName + " munkalapot.");
+  }
+  return newSheet;
+}
+
+function isValidDate(dateString) {
+  var date = new Date(dateString);
+  return !isNaN(date.getTime());
+}
+
+function writeFilteredDataToSheet(data, sheet, statusIndex, status, chunkSize) {
+  var filteredData = data.filter(function (row, index) {
+    if (index === 0) return true; // Fejléc
+    return row[statusIndex] && row[statusIndex].toLowerCase() === status;
+  });
+  writeDataToSheet(filteredData, sheet, chunkSize);
+}
+
+function writeDataToSheet(data, sheet, chunkSize) {
+  if (data.length > 1) { // Ha van adat (fejléc + sorok)
+    var headerLength = data[0].length;
+    for (var i = 0; i < data.length; i += chunkSize) {
+      var chunk = data.slice(i, i + chunkSize);
+      sheet.getRange(i + 1, 1, chunk.length, headerLength).setValues(chunk);
+    }
+  }
+}
+
+function getCurrentDate() {
+  var now = new Date();
+  return now.getFullYear() + "-" +
+         String(now.getMonth() + 1).padStart(2, '0') + "-" +
+         String(now.getDate()).padStart(2, '0');
+}
+
+
+
+
+
+
+function getOrCreateSheetWithTimestamp(spreadsheet, baseName, dateSuffix) {
+  var sheetName = baseName + dateSuffix;
+  var existingSheet = spreadsheet.getSheetByName(sheetName);
+
+  // Ha létezik a sheet, töröljük a tartalmát
+  if (existingSheet) {
+    existingSheet.clear();
+    return existingSheet;
+  }
+
+  // Ha nem létezik, új sheetet hozunk létre
+  var newSheet = spreadsheet.insertSheet(sheetName);
+  if (!newSheet) {
+    throw new Error("Nem sikerült létrehozni a(z) " + sheetName + " munkalapot.");
+  }
+  return newSheet;
+}
+
+function getCurrentDate() {
+  var now = new Date();
+  return now.getFullYear() + "-" +
+         String(now.getMonth() + 1).padStart(2, '0') + "-" +
+         String(now.getDate()).padStart(2, '0');
+}
+
+function isValidDate(dateString) {
+  var date = new Date(dateString);
+  return !isNaN(date.getTime());
+}
+
+function writeDataToSheet(data, sheet, chunkSize) {
+  if (data.length > 1) { // Ha van adat (fejléc + sorok)
+    var headerLength = data[0].length;
+    for (var i = 0; i < data.length; i += chunkSize) {
+      var chunk = data.slice(i, i + chunkSize);
+      sheet.getRange(i + 1, 1, chunk.length, headerLength).setValues(chunk);
+    }
+  }
+}
+
+function writeFilteredDataToSheet(data, sheet, statusIndex, status, chunkSize) {
+  var filteredData = data.filter(function (row, index) {
+    if (index === 0) return true; // Fejléc
+    return row[statusIndex] && row[statusIndex].toLowerCase() === status;
+  });
+  writeDataToSheet(filteredData, sheet, chunkSize);
+}
