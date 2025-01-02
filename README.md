@@ -38,3 +38,21 @@ Egyszerre hoz létre 5 munkalapot.
 - Sikertelen rendelése: mindenki aki nem tudott leadni rendelést (az is aki nem tudott előfizetni nálad)
 - Lejárt előfizetések: Akik nem tudta vonni a SalesForm a havi díját, de nem momndták le (3 naponta újra próbáljuk)
 - Törölt előfizetések: Akik lemondták az előfizetéseidet
+
+
+## Előfizetések és rendelésk CRM kezelése
+
+Az "Előfizetések és sima rendelések kezelése egy táblázatban" tábla adatai alapján abban segít, hogy egy értékesítő vagy ügyfélszolgálatos felhívja azokat, akiknek tartozása van, törölték az előfizetésükat vagy sikertelenül próbálnak rendelést leadni. 
+A google CRM rendszerben nyomon tudod követni a státuszokat és még fix vagy százalékos jutalékot is adhatsz a megmentett rendelésekhez
+
+Ehez a scripthez hozz létre egy új Google sheets táblázatot. Maradhat üres.
+Az App sriptben tedd bele a scriptet és szabd testre.
+- sourceSpreadsheetId: ide kerül az "Előfizetések és sima rendelések kezelése egy táblázatban" Google sheet azonosítója
+- targetSpreadsheetId: Ide kerül annak a Google sheets-nek az azonosítója, amiben a CRM tevékenységet végzed (vagy épp kiadod)
+- percentage vagy fixed a jutalék (százalékos vagy fix összeg)
+- Állítsd be a fix jutalék összegét
+- Állítsd be a százalék összegét
+- Chunk méretének központi kezelése. Ha nagyom sok adatot van, akkor érdemes 500 ra csökkenteni
+
+Állíts be, hogy naponta fusson a script
+
