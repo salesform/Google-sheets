@@ -59,25 +59,26 @@ function getFormattedDate() {
 function getSheetByPrefix(spreadsheet, prefix) {
   try {
     Logger.log("Munkalap keresése az előtag alapján: " + prefix);
-    var sheets = spreadsheet.getSheets();
-    var today = new Date();
-    var formattedDate = today.getFullYear() + "-" +
-      String(today.getMonth() + 1).padStart(2, '0') + "-" +
-      String(today.getDate()).padStart(2, '0');
-    var sheetName = prefix + formattedDate;
 
-    var sheet = sheets.find(s => s.getName() === sheetName);
+    // Lekérjük az összes munkalapot
+    var sheets = spreadsheet.getSheets();
+
+    // Megkeressük az első olyan munkalapot, amelynek neve az előtaggal kezdődik
+    var sheet = sheets.find(s => s.getName().startsWith(prefix));
+
     if (sheet) {
-      Logger.log("Talált munkalap: " + sheetName);
+      Logger.log("Talált munkalap: " + sheet.getName());
     } else {
-      Logger.log("Nem található munkalap: " + sheetName);
+      Logger.log("Nem található munkalap az előtag alapján: " + prefix);
     }
+
     return sheet || null;
   } catch (error) {
     Logger.log("Hiba a getSheetByPrefix függvényben: " + error.message);
     throw error;
   }
 }
+
 
 function ensureSheetExists(spreadsheet, sheetName) {
   var sheet = spreadsheet.getSheetByName(sheetName);
