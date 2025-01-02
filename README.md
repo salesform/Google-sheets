@@ -54,5 +54,5 @@ Az App sriptben tedd bele a scriptet és szabd testre.
 - Állítsd be a százalék összegét
 - Chunk méretének központi kezelése. Ha nagyom sok adatot van, akkor érdemes 500 ra csökkenteni
 
-Állíts be, hogy naponta fusson a script
+Állíts be, hogy naponta fusson a script és a runALL
 
